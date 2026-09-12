@@ -29,7 +29,8 @@ from portfolio_optimizer.data_loader import (
     calculate_covariance, calculate_returns, load_prices,
 )
 from portfolio_optimizer.optimizer import (
-    efficient_frontier, equal_weighted_portfolio, max_sharpe, min_variance, risk_parity,
+    efficient_frontier, equal_weighted_portfolio, inverse_volatility, max_sharpe,
+    min_variance, risk_budget, risk_parity,
 )
 from portfolio_optimizer.report import diversification_ratio, pct_risk_contribution
 
@@ -45,13 +46,22 @@ CAPS = {"none": None, "40": 0.40, "25": 0.25}
 
 
 def strategies_for(bounds):
-    """The four strategies, each built against one set of weight bounds."""
-    return {
+    """The strategies, each built against one set of weight bounds.
+
+    Risk-Budget and Inverse-Volatility are closed-form/unconstrained methods
+    that cannot honour a weight cap, so they appear only in the uncapped
+    variant rather than being shown in violation of one.
+    """
+    s = {
         "Equal-Weight": lambda mu, cov: equal_weighted_portfolio(len(mu)),
         "Min-Variance": lambda mu, cov: min_variance(cov, bounds=bounds),
         "Max-Sharpe":   lambda mu, cov: max_sharpe(cov, mu, RISK_FREE, bounds=bounds),
         "Risk-Parity":  lambda mu, cov: risk_parity(cov, bounds=bounds),
     }
+    if bounds is None:
+        s["Risk-Budget"] = lambda mu, cov: risk_budget(cov)
+        s["Inverse-Volatility"] = lambda mu, cov: inverse_volatility(cov)
+    return s
 
 
 def describe(weights, mu, cov):
@@ -69,7 +79,7 @@ def describe(weights, mu, cov):
 
 
 def run_variant(prices, returns, mu_all, cov_all, bounds):
-    """Backtest all four strategies plus the frontier under one cap setting."""
+    """Backtest every strategy for this cap setting, plus the frontier."""
     v = {"backtests": {}, "static_strategies": [], "frontier": []}
 
     for name, fn in strategies_for(bounds).items():
@@ -107,7 +117,7 @@ def run_variant(prices, returns, mu_all, cov_all, bounds):
         d["name"] = name
         v["static_strategies"].append(d)
 
-    fr = efficient_frontier(mu_all.values, cov_all.values, n_points=60, bounds=bounds)
+    fr = efficient_frontier(cov_all.values, mu_all.values, n_points=60, bounds=bounds)
     v["frontier"] = [{"vol": float(a), "ret": float(b),
                       "weights": [round(float(x), 4) for x in c]}
                      for a, b, c in zip(fr["Volatilities"], fr["Returns"], fr["Weights"])]
@@ -175,7 +185,7 @@ def main():
         print(f"\n{label}")
         for name, b in out["variants"][key]["backtests"].items():
             m = b["metrics"]
-            print(f"  {name:<13} ${b['equity'][-1]:>11,.0f}  sharpe {m['sharpe_ratio']:>5.2f}  "
+            print(f"  {name:<18} ${b['equity'][-1]:>11,.0f}  sharpe {m['sharpe_ratio']:>5.2f}  "
                   f"maxDD {m['max_drawdown']*100:>6.1f}%  costs ${m['total_costs']:>7,.0f}  "
                   f"biggest holding {b['max_holding']*100:>3.0f}%")
 

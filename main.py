@@ -201,7 +201,7 @@ def main():
               f"{(ret-RISK_FREE)/sigma:>8.2f}"
               f"{diversification_ratio(w, cov.values):>7.2f}   {wtxt}")
 
-    fr = efficient_frontier(mu.values, cov.values, n_points=40, bounds=bounds)
+    fr = efficient_frontier(cov.values, mu.values, n_points=40, bounds=bounds)
     print(f"\n  efficient frontier: {len(fr['Returns'])} portfolios, "
           f"volatility {fr['Volatilities'].min()*100:.1f}% to {fr['Volatilities'].max()*100:.1f}%")
 

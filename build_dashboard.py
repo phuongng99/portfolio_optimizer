@@ -11,24 +11,43 @@ Typical loop after new prices land in data/stock_prices.csv:
 
     python build_dashboard_data.py     # re-run every strategy through the backtester
     python build_dashboard.py          # rebuild the page and open it
+
+A second dataset builds to its own page, so the two do not overwrite one another:
+
+    python build_dashboard_data.py --prices multi_asset_prices.csv --out dashboard_data_multi.json
+    python build_dashboard.py --data dashboard_data_multi.json --out dashboard_multi.html
 """
 
+import argparse
 import json
 import os
 import sys
 import webbrowser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "dashboard_data.json")
 TEMPLATE = os.path.join(HERE, "dashboard", "template.html")
-OUTPUT = os.path.join(HERE, "dashboard.html")
 
 PLACEHOLDER = "/*__DATA__*/null/*__END__*/"
 
 
+def _resolve(path):
+    return path if os.path.sep in path else os.path.join(HERE, path)
+
+
 def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--data", default="dashboard_data.json",
+                    help="JSON from build_dashboard_data.py")
+    ap.add_argument("--out", default="dashboard.html", help="HTML page to write")
+    ap.add_argument("--no-open", action="store_true", help="build without opening a browser")
+    args = ap.parse_args()
+
+    DATA = _resolve(args.data)
+    OUTPUT = _resolve(args.out)
+
     if not os.path.exists(DATA):
-        sys.exit("dashboard_data.json not found - run:  python build_dashboard_data.py")
+        sys.exit(f"{args.data} not found - run:  python build_dashboard_data.py")
     if not os.path.exists(TEMPLATE):
         sys.exit(f"template not found at {TEMPLATE}")
 
@@ -54,10 +73,10 @@ def main():
         default_variant = next(iter(payload["variants"].values()))
     for name, bt in default_variant["backtests"].items():
         m = bt["metrics"]
-        print(f"  {name:<13} ${bt['equity'][-1]:>11,.0f}   sharpe {m['sharpe_ratio']:>5.2f}   "
+        print(f"  {name:<18} ${bt['equity'][-1]:>11,.0f}   sharpe {m['sharpe_ratio']:>5.2f}   "
               f"maxDD {m['max_drawdown']*100:>6.1f}%")
 
-    if "--no-open" not in sys.argv:
+    if not args.no_open:
         webbrowser.open("file://" + OUTPUT)
         print("opening in your browser...")
 

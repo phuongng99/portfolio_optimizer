@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Make the package importable when pytest is run from anywhere.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Make the package importable when pytest is run from the repository root.
+PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(PACKAGE_ROOT))
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "stock_prices.csv")
 

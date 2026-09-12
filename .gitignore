@@ -3,5 +3,5 @@ __pycache__/
 .pytest_cache/
 .venv/
 .DS_Store
-dashboard.html
+dashboard*.html
 dashboard_data*.json

@@ -12,7 +12,7 @@
   --page:#eef0f4; --surface:#fbfcfd; --surface-2:#f4f6f9; --sunken:#e8ebf0;
   --ink:#0e1116; --ink-2:#4d5561; --muted:#848c99;
   --grid:#e2e5ea; --axis:#c6cbd4; --rule:rgba(14,17,22,.10);
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#7d5bbe;
   --bench:#9aa2af;
   --good:#0ca30c; --bad:#d03b3b; --warn:#fab219;
   --shadow:0 1px 2px rgba(14,17,22,.05), 0 8px 24px -12px rgba(14,17,22,.14);
@@ -23,7 +23,7 @@
     --page:#0a0c10; --surface:#15181e; --surface-2:#1b1f26; --sunken:#101318;
     --ink:#f3f5f8; --ink-2:#a9b1bd; --muted:#79818f;
     --grid:#242932; --axis:#39404b; --rule:rgba(243,245,248,.11);
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9878d8;
     --bench:#727b88;
     --good:#0ca30c; --bad:#d03b3b; --warn:#fab219;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.6);
@@ -34,7 +34,7 @@
   --page:#0a0c10; --surface:#15181e; --surface-2:#1b1f26; --sunken:#101318;
   --ink:#f3f5f8; --ink-2:#a9b1bd; --muted:#79818f;
   --grid:#242932; --axis:#39404b; --rule:rgba(243,245,248,.11);
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9878d8;
   --bench:#727b88;
   --good:#0ca30c; --bad:#d03b3b; --warn:#fab219;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.6);
@@ -278,26 +278,45 @@ footer code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:
   "use strict";
   var D = window.__DASH__;
 
-  var SERIES = [
-    { name: "Equal-Weight", c: "var(--s1)" },
-    { name: "Min-Variance", c: "var(--s2)" },
-    { name: "Max-Sharpe",   c: "var(--s3)" },
-    { name: "Risk-Parity",  c: "var(--s4)" }
+  // Colour and shape are pinned to the strategy, not to its position, so a
+  // strategy keeps its identity across cap tabs that carry different subsets.
+  var ALL_SERIES = [
+    { name: "Equal-Weight",       c: "var(--s1)", sh: "circle" },
+    { name: "Min-Variance",       c: "var(--s2)", sh: "square" },
+    { name: "Max-Sharpe",         c: "var(--s3)", sh: "triangle" },
+    { name: "Risk-Parity",        c: "var(--s4)", sh: "diamond" },
+    { name: "Risk-Budget",        c: "var(--s5)", sh: "circle" },
+    { name: "Inverse-Volatility", c: "var(--s6)", sh: "square" }
   ];
   var ASSET_C = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)"];
-  var SHAPE = ["circle", "square", "triangle", "diamond"];
 
   var state = {
-    on: { "Equal-Weight": true, "Min-Variance": true, "Max-Sharpe": true, "Risk-Parity": true },
+    on: {},
     focus: "Max-Sharpe",
     range: "All",
     scale: "linear",
     cap: "none"
   };
+  ALL_SERIES.forEach(function (s) { state.on[s.name] = true; });
 
   var CAP_LABEL = { none: "no cap", "40": "40% cap", "25": "25% cap" };
   function V() { return D.variants[state.cap]; }
   function BT(name) { return V().backtests[name]; }
+
+  // Risk-Budget and Inverse-Volatility cannot honour a cap, so the capped
+  // variants have no backtest for them. Everything downstream reads SERIES,
+  // so narrowing it here keeps every chart and table to what actually exists.
+  var SERIES = [];
+  function syncSeries() {
+    var bt = V().backtests;
+    SERIES = ALL_SERIES.filter(function (s) { return bt[s.name]; });
+    if (!SERIES.some(function (s) { return s.name === state.focus && state.on[s.name]; })) {
+      var f = SERIES.filter(function (s) { return state.on[s.name]; })[0] || SERIES[0];
+      state.focus = f.name;
+      state.on[f.name] = true;
+    }
+  }
+  syncSeries();
 
   var DATES = D.dates;
   var RANGES = { "3M": 63, "6M": 126, "1Y": 252, "All": DATES.length };
@@ -600,7 +619,7 @@ footer code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:
     V().static_strategies.forEach(function (s, i) {
       var si = SERIES.map(function (x) { return x.name; }).indexOf(s.name);
       if (si < 0 || !state.on[s.name]) return;
-      var x = X(s.vol), y = Y(s.ret), c = SERIES[si].c, sh = SHAPE[si], r = 6;
+      var x = X(s.vol), y = Y(s.ret), c = SERIES[si].c, sh = SERIES[si].sh, r = 6;
       var shape;
       if (sh === "circle") shape = '<circle cx="' + x + '" cy="' + y + '" r="' + r + '"';
       else if (sh === "square") shape = '<rect x="' + (x - r + .6) + '" y="' + (y - r + .6) + '" width="' + (2 * r - 1.2) + '" height="' + (2 * r - 1.2) + '" rx="1.5"';
@@ -908,10 +927,7 @@ footer code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:
     }).join("");
 
     var chips = document.getElementById("chips");
-    chips.innerHTML = SERIES.map(function (s) {
-      return '<button class="chip" type="button" data-s="' + esc(s.name) + '" aria-pressed="true" style="--c:' + s.c + '">' +
-        '<span class="dot" style="background:' + s.c + '"></span>' + esc(s.name) + "</button>";
-    }).join("");
+    renderChips();
     chips.addEventListener("click", function (e) {
       var btn = e.target.closest(".chip"); if (!btn) return;
       var name = btn.dataset.s;
@@ -938,6 +954,7 @@ footer code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:
       capEl.querySelectorAll("button").forEach(function (x) {
         x.setAttribute("aria-pressed", String(x.dataset.c === state.cap));
       });
+      syncSeries(); renderChips(); syncChips();
       renderAll();
     });
 
@@ -963,6 +980,12 @@ footer code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:
       renderEquity();
     });
     syncChips();
+  }
+  function renderChips() {
+    document.getElementById("chips").innerHTML = SERIES.map(function (s) {
+      return '<button class="chip" type="button" data-s="' + esc(s.name) + '" aria-pressed="true" style="--c:' + s.c + '">' +
+        '<span class="dot" style="background:' + s.c + '"></span>' + esc(s.name) + "</button>";
+    }).join("");
   }
   function syncChips() {
     document.querySelectorAll("#chips .chip").forEach(function (b) {
